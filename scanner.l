@@ -9,9 +9,31 @@
 int linenum = 1;
 char buf[MAX_LINE_LENG];
 
-#include <string.h>
+#include <map>
+#include <vector>
+#include <iostream>
+using namespace std;
+
+class symbolTable
+{
+public:
+	symbolTable() { this->count = 0; };
+	void create() {}
+	int lookup(string s);
+	int insert(string s);
+	int dump();
+
+private:
+	map<string, int> entry; // id_name, index
+	int count; // the size of symbol table
+	vector<string> record; // record all entries of the sybol table
+};
+
+symbolTable st;
 
 %}
+extern "C" {int yylex(void);}
+%option noyywrap
 
 %x CMNT
 
@@ -93,7 +115,10 @@ string (\"(\"\"|.)*\")
 {integer} {tokenString(INTEGER, yytext);}
  
  /* Identifiers */
-{identifier} {tokenString("id", yytext);}
+{identifier} {
+	tokenString("id", yytext);
+	st.insert(yytext);
+}
  
   /* Real Constants */
 {real} {tokenString(REAL, yytext);}
@@ -146,3 +171,32 @@ string (\"(\"\"|.)*\")
         exit(-1);
         }
 %%
+int symbolTable::lookup(string s)
+{
+	if (entry.count(s))
+		return entry[s];
+	return -1; // not found
+}
+
+int symbolTable::insert(string s)
+{
+	if(this->lookup(s)!=-1) return this->lookup(s);
+	entry[s] = count;
+	count++;
+	record.push_back(s);
+	return entry[s];
+}
+
+int symbolTable::dump()
+{
+	for (int i = 0; i < count; i++)
+		cout << record[i] << endl;
+	return 0;
+}
+
+int main()
+{
+	yylex();
+	printf("\nSymbol Table:\n");
+	st.dump();
+}
