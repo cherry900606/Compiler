@@ -14,6 +14,7 @@ char buf[MAX_LINE_LENG];
 #include <iostream>
 using namespace std;
 
+
 class symbolTable
 {
 public:
@@ -42,7 +43,7 @@ integer {digit}+
 letter [a-zA-Z]
 identifier {letter}({digit}|{letter})*
 real [-+]?{integer}\.{integer}?([Ee][-+]?{digit})?
-string (\"(\"\"|.)*\")
+string \"(\"\"|.)*\"
 %%
 
  /* delimiters */
