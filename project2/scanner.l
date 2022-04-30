@@ -12,6 +12,7 @@
 
 int linenum = 1;
 char buf[MAX_LINE_LENG];
+
 %}
 extern "C" {int yylex(void);}
 %option noyywrap
@@ -72,7 +73,7 @@ string \"(\"\"|.)*\"
 [dD][oO]                                {token(DO);}
 [eE][lL][sS][eE]                {token(ELSE);}
 [eE][xX][iI][tT]                {token(EXIT);}
-[fF][aA][lL][sS][eE]    {token(FALSE);}
+[fF][aA][lL][sS][eE]    {token(FALSE); yylval.Element.bval = false;}
 [fF][lL][oO][aA][tT]    {token(FLOAT);}
 [fF][oO][rR]                    {token(FOR);}
 [fF][uU][nN]                    {token(FUN);}
@@ -83,7 +84,7 @@ string \"(\"\"|.)*\"
 [pP][rR][iI][nN][tT][lL][nN]    {token(PRINTLN);}
 [rR][eE][tT][uU][rR][nN]        {token(RETURN);}
 [sS][tT][rR][iI][nN][gG]        {token(STRING);}
-[tT][rR][uU][eE]                {token(TRUE);}
+[tT][rR][uU][eE]                {token(TRUE); yylval.Element.bval = true;}
 [vV][aA][lL]                    {token(VAL);}
 [vV][aA][rR]                    {token(VAR);}
 [wW][hH][iI][lL][eE]    {token(WHILE);}
@@ -91,11 +92,12 @@ string \"(\"\"|.)*\"
 
 {integer} {
         tokenString(INTEGER, yytext);
-        yylval = atoi(yytext);
+        yylval.Element.ival = atoi(yytext);
         return INTEGER;
  }
 {identifier} {
         tokenString(IDENTIFIER, yytext);
+		yylval.Element.sval = strdup(yytext);
         return IDENTIFIER;
 }
 {string} {
@@ -108,11 +110,13 @@ string \"(\"\"|.)*\"
                 s[index++]=yytext[i];
         }
         s[index]='\0';
-        tokenString(STRING, yytext);
+        tokenString(STRING, s);
+		yylval.Element.sval = strdup(s);
         return STRING;
 }
 {real} {
         tokenString(REAL, yytext);
+		yylval.Element.fval = atof(yytext);
         return REAL;
 }
 
