@@ -40,10 +40,15 @@ extern int yylex(void);
 %type<Element> constant_expression optional_assign
 %type<Element> expression
 
+%left OR
+%left AND
+%left NOT
+%left LE GE EQ NE '<' '>'
 %left '+' '-'
 %left '*' '/' '%'
-%left LE GE EQ NE '<' '>' AND OR NOT
+
 %right ADD_ASSIGN SUB_ASSIGN MUL_ASSIGN DIV_ASSIGN ASSIGN
+
 %nonassoc UMINUS
 %%
 program:
@@ -64,7 +69,6 @@ declaration:
 constant_declaration: 
 	VAL IDENTIFIER optional_type ASSIGN expression { 
 		Trace("Reducing to constant_declaration\n");
-		
 		if($3.dtype != Non_type && $3.dtype != $5.dtype)
 			yyerror("data type and expr type are not matched!");
 			
@@ -91,12 +95,22 @@ var_declaration:
 		if($3.dtype != Non_type && $4.dtype!= Non_type && $3.dtype != $4.dtype)
 			yyerror("data type and expr type are not matched!");
 			
-		Val v;
-		v.isInit = true;
 		int type;
 		if($3.dtype != Non_type) type = $3.dtype;
 		else if($4.dtype != Non_type) type = $4.dtype;
 		else type = Non_type;
+		
+		Val v;
+		if($4.dtype == Non_type) v.isInit = false;
+		else
+		{
+			v.isInit = true;
+			if($4.dtype == Int_type) v.ival = $4.ival;
+			else if($4.dtype == Float_type) v.fval = $4.fval;
+			else if($4.dtype == String_type) v.sval = $4.sval;
+			else if($4.dtype == Bool_type) v.bval = $4.bval;
+		}
+		
 		
 		Entry e;
 		e = createEntry($2.sval, type, Var_type, v);
@@ -130,15 +144,15 @@ func_declaration:
 		if(result == -1)
 			sts.insert_entry(e);
 		else
-			yyerror("this arr is already existed!\n");
+			yyerror("this func is already existed!\n");
 		
 		/* then add new symbol table for new scope */
 		sts.push_table($2.sval);
 	}
 	'(' optional_arguments ')' optional_type {
-		printf("=======%d\n", $7.dtype);
+		sts.setFuncTpye($7.dtype);
 	}
-	block  {
+	block {
 		Trace("Reducing to func_declaration\n"); 
 		sts.dump_table(); 
 		sts.pop_table();
@@ -181,36 +195,157 @@ statement:
 	| conditional_statement  {Trace("Reducing to statement\n");}
 	| loop_statement {Trace("Reducing to statement\n");}
 ;
-simple: IDENTIFIER ASSIGN expression {Trace("Reducing to simple\n");}
-        | IDENTIFIER '[' expression ']' ASSIGN expression{Trace("Reducing to simple\n");}
+simple: IDENTIFIER ASSIGN expression {
+			Trace("Reducing to simple\n");
+			
+			int result = sts.lookup_entry_global($1.sval);
+			if(result == -1)
+				yyerror("the identifier is not defined!\n");
+			
+			Entry* ptr = sts.getEntry($1.sval);
+			if(ptr->dataType != $3.dtype)
+				yyerror("type match error\n");
+			if(ptr->entryType == Val_type)
+				yyerror("val constant can't be reassigned\n");
+			}
+        | IDENTIFIER '[' expression ']' ASSIGN expression{
+			Trace("Reducing to simple\n");
+			
+			int result = sts.lookup_entry_global($1.sval);
+			if(result == -1)
+				yyerror("the identifier is not defined!\n");
+				
+			Entry* ptr = sts.getEntry($1.sval);
+			if(ptr->dataType != $6.dtype)
+				yyerror("type match error\n");
+		}
         | PRINT expression {Trace("Reducing to simple\n");}
         | PRINT '(' expression ')' {Trace("Reducing to simple\n");}
 		| PRINTLN expression {Trace("Reducing to simple\n");}
 		| PRINTLN '(' expression ')' {Trace("Reducing to simple\n");}
-        | READ IDENTIFIER{Trace("Reducing to simple\n");}
+        | READ IDENTIFIER{
+			Trace("Reducing to simple\n");
+			
+			int result = sts.lookup_entry_global($2.sval);
+			if(result == -1)
+				yyerror("the identifier is not defined!\n");
+		}
         | RETURN {Trace("Reducing to simple\n");}
         | RETURN expression {Trace("Reducing to simple\n");}
 ;
 expression:
-	'-' expression %prec UMINUS{Trace("Reducing to expression\n");}
-	| expression '*' expression {Trace("Reducing to expression\n");}
-	| expression '/' expression {Trace("Reducing to expression\n");}
-	| expression '%' expression {Trace("Reducing to expression\n");}
-	| expression '+' expression {Trace("Reducing to expression\n");}
-	| expression '-' expression {Trace("Reducing to expression\n");}
-	| expression '<' expression {Trace("Reducing to expression\n");}
-	| expression '>' expression {Trace("Reducing to expression\n");}
-	| expression LE expression {Trace("Reducing to expression\n");}
-	| expression GE expression {Trace("Reducing to expression\n");}
-	| expression EQ expression {Trace("Reducing to expression\n");}
-	| expression NE expression {Trace("Reducing to expression\n");}
+	'-' expression %prec UMINUS{
+			Trace("Reducing to expression\n");
+			
+			if($2.dtype != Int_type && $2.dtype != Float_type)
+				yyerror("type error\n");
+			$$.ival = -1 * $2.ival;
+		}
+	| expression '*' expression {
+			Trace("Reducing to expression\n");
+			
+			if($1.dtype != $3.dtype)
+				yyerror("types are not the same\n");
+			$$.ival = $1.ival * $3.ival;
+		}
+	| expression '/' expression {
+			Trace("Reducing to expression\n");
+			
+			if($1.dtype != $3.dtype)
+				yyerror("types are not the same\n");
+			$$.ival = $1.ival / $3.ival;
+		}
+	| expression '%' expression {
+			Trace("Reducing to expression\n");
+			
+			if($1.dtype != $3.dtype)
+				yyerror("types are not the same\n");
+			$$.ival = $1.ival % $3.ival;
+		}
+	| expression '+' expression {
+			Trace("Reducing to expression\n");
+			
+			if($1.dtype != $3.dtype)
+				yyerror("types are not the same\n");
+			$$.ival = $1.ival + $3.ival;
+		}
+	| expression '-' expression {
+			Trace("Reducing to expression\n");
+			
+			if($1.dtype != $3.dtype)
+				yyerror("types are not the same\n");
+			$$.ival = $1.ival - $3.ival;
+		}
+	| expression '<' expression {
+			Trace("Reducing to expression\n");
+			
+			if($1.dtype != $3.dtype)
+				yyerror("types are not the same\n");
+			$$.ival = $1.ival < $3.ival;
+		}
+	| expression '>' expression {
+			Trace("Reducing to expression\n");
+			
+			if($1.dtype != $3.dtype)
+				yyerror("types are not the same\n");
+			$$.ival = $1.ival > $3.ival;
+		}
+	| expression LE expression {
+			Trace("Reducing to expression\n");
+			
+			if($1.dtype == String_type || $3.dtype == String_type)
+				yyerror("type error");
+		}
+	| expression GE expression {
+			Trace("Reducing to expression\n");
+			
+			if($1.dtype == String_type || $3.dtype == String_type)
+				yyerror("type error");
+		}
+	| expression EQ expression {
+			Trace("Reducing to expression\n");
+			
+			if($1.dtype == String_type || $3.dtype == String_type)
+				yyerror("type error");
+		}
+	| expression NE expression {
+			Trace("Reducing to expression\n");
+			
+			if($1.dtype == String_type || $3.dtype == String_type)
+				yyerror("type error");
+		}
 	| expression OR expression {Trace("Reducing to expression\n");}
 	| expression AND expression {Trace("Reducing to expression\n");}
-	| NOT expression {Trace("Reducing to expression\n");}
-	| func_invocation {Trace("Reducing to expression\n");}
+	| NOT expression {
+		Trace("Reducing to expression\n");
+		}
+	| func_invocation {
+			Trace("Reducing to expression\n");
+		}
 	| constant_expression {Trace("Reducing to expression\n");}
-	| IDENTIFIER '[' expression ']'  {Trace("Reducing to expression\n");}
-	| IDENTIFIER {Trace("Reducing to expression\n");}
+	| IDENTIFIER '[' expression ']'  {
+		Trace("Reducing to expression\n");
+		
+		int result = sts.lookup_entry_global($1.sval);
+		if(result == -1)
+			yyerror("the identifier is not defined!\n");
+	}
+	| IDENTIFIER {
+		Trace("Reducing to expression\n");
+		
+		bool ForCondition = false;
+		if(sts.nowIsFor && $1.sval == sts.forID) ForCondition = true;
+		int result = sts.lookup_entry_global($1.sval);
+		if(result == -1 && ForCondition == false)
+			yyerror("the identifier is not defined!\n");
+			
+		Entry* ptr = sts.getEntry($1.sval);
+		$$.dtype = ptr->dataType;
+		if($$.dtype == Int_type) $$.ival = ptr->val.ival;
+		else if($$.dtype == Float_type) $$.fval = ptr->val.fval;
+		else if ($$.dtype == Bool_type) $$.bval = ptr->val.bval;
+		else if($$.dtype == String_type) $$.sval = ptr->val.sval;
+	}
 ; 
 loop_statement:
 	while_statement {Trace("Reducing to loop_statement\n");}
@@ -220,8 +355,14 @@ while_statement:
 	WHILE '(' expression ')' block_or_simple {Trace("Reducing to while_statement\n");}
 ;
 for_statement:
-	FOR '(' IDENTIFIER IN INTEGER '.' '.' INTEGER ')' block_or_simple
-	{Trace("Reducing to for_statement\n");}
+	FOR '(' IDENTIFIER IN INTEGER '.' '.' INTEGER ')' {
+		sts.nowIsFor = true;
+		sts.forID = $3.sval;
+	}
+	block_or_simple {
+		Trace("Reducing to for_statement\n");
+		sts.nowIsFor = false;
+	}
 ;
 conditional_statement:
 	IF '(' expression ')' block_or_simple optional_else {Trace("Reducing to conditional_statement\n");}
@@ -231,11 +372,39 @@ optional_else:
 	| {Trace("Reducing to optional_else\n");}
 ;
 block_or_simple:
-	block {Trace("Reducing to block_or_simple\n");}
-	| simple {Trace("Reducing to block_or_simple\n");}
+	{
+		sts.push_table("block");
+		if(sts.nowIsFor == true)
+		{
+			Entry e; Val v;
+			e = createEntry(sts.forID, Non_type, Var_type, v);
+			int result = sts.lookup_entry(e);
+			if(result == -1)
+				sts.insert_entry(e);
+		}
+			
+	} 
+	block {
+			Trace("Reducing to block_or_simple\n");
+			sts.dump_table(); 
+			sts.pop_table();
+		}
+	| simple {
+			Trace("Reducing to block_or_simple\n");
+		}
 ;
 func_invocation:
-		IDENTIFIER '(' optional_parameters ')'  {Trace("Reducing to func_invocation\n");}
+		IDENTIFIER '(' optional_parameters ')'  {
+			Trace("Reducing to func_invocation\n");
+			
+			int result = sts.lookup_entry_global($1.sval);
+			if(result == -1)
+				yyerror("the identifier is not defined!\n");
+			
+			Entry* ptr = sts.getEntry($1.sval);
+			if(ptr->dataType == Non_type)
+				yyerror("this function doesn't return value\n");
+		}
 ;
 optional_parameters:
 	parameters {Trace("Reducing to optional_parameters\n");}
@@ -260,7 +429,15 @@ optional_type:
 		}
 ;
 optional_assign:
-	ASSIGN expression  { $$.dtype = $2.dtype; Trace("Reducing to optional_assign\n");}
+	ASSIGN expression  { 
+			Trace("Reducing to optional_assign\n");
+			$$.dtype = $2.dtype; 
+			
+			if($$.dtype == Int_type) $$.ival = $2.ival;
+			else if($$.dtype == Float_type) $$.fval = $2.fval;
+			else if ($$.dtype == Bool_type) $$.bval = $2.bval;
+			else if($$.dtype == String_type) $$.sval = $2.sval;
+		}
 	|   { $$.dtype = Non_type; Trace("Reducing to optional_assign\n");}
 ;
 data_type:
