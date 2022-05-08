@@ -3,15 +3,8 @@
 #include <iostream>
 using namespace std;
 
-enum dtype {
-	// var 
-	Int_type, Float_type, String_type, Bool_type,
-	// other
-	Non_type,
-};
-enum etype {
-	Val_type, Var_type, Arr_type, Func_type,
-};
+enum dtype { Int_type, Float_type, String_type, Bool_type, Non_type,};
+enum etype { Val_type, Var_type, Arr_type, Func_type,};
 
 struct Val {
 	int ival = 0;
@@ -72,8 +65,14 @@ public:
 	
 	Entry* getEntry(string s);
 	
+	bool nowIsFunc = false;
+	int nowFuncType = Non_type;
+	string nowFuncName = "";
 	bool nowIsFor = false;
 	string forID = "";
+	
+	int allFuncCount = 0;
+	int nowFuncArgCount = 0;
 
 };
 void symbolTables::setFuncTpye(int type)
@@ -160,16 +159,3 @@ Entry createEntry(string s, int dtype, int etype, Val v, int arrSize = 0)
 	e.arrSize = arrSize;
 	return e;
 }
-/* todo list 
-* 1. check the ID is declared in this scope (or in the previous scope) Y
-* 2. check func invoke, which is same as 1. Y
-* 3. return type for func invoke ( ex: c = add(a, 10)) (type checking
-* 4. expression return val and store in symbol table (necessary?
-* 5. for ( id in xx..xx) <- add id into symbol table
-* 6. func return type should be dame as declaration
-* 7. what is the definition of bool_expr?
-* 8. check at least one func
-* 9. arr len >= 1 and index must be int
-* 10. arr index out of range
-*/
-
