@@ -222,6 +222,7 @@ statement:
 	| declaration {Trace("Reducing to statement\n");}
 	| conditional_statement  {Trace("Reducing to statement\n");}
 	| loop_statement {Trace("Reducing to statement\n");}
+	| {Trace("Reducing to (empty) statement\n");}
 ;
 simple: IDENTIFIER ASSIGN expression {
 			Trace("Reducing to simple\n");
@@ -230,7 +231,10 @@ simple: IDENTIFIER ASSIGN expression {
 			if(result == -1)
 				yyerror("the identifier is not defined!\n");
 			
-			Entry* ptr = sts.getEntry($1.sval);
+			Entry* ptr = sts.getEntry($3.sval);
+			if(ptr->dataType == Non_type && ptr->entryType == Func_type)
+				yyerror("procedure cannot be used in expression\n");
+			ptr = sts.getEntry($1.sval);
 			if(ptr->dataType != $3.dtype)
 				yyerror("type match error\n");
 			if(ptr->entryType == Val_type)
@@ -489,8 +493,8 @@ func_invocation:
 				yyerror("the identifier is not defined!\n");
 			
 			Entry* ptr = sts.getEntry($1.sval);
-			if(ptr->dataType == Non_type)
-				yyerror("procedure cannot be used in expression\n");
+			if(ptr->entryType != Func_type)
+				yyerror("the identifier is not a function\n");
 			sts.nowFuncName = $1.sval;
 		}'(' optional_parameters ')' {
 			if(sts.nowFuncArgCount < funcArgs[sts.nowFuncName].size())
