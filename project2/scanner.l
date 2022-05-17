@@ -89,6 +89,7 @@ string \"(\"\"|.)*\"
 [vV][aA][rR]                    {token(VAR);}
 [wW][hH][iI][lL][eE]    {token(WHILE);}
 [iI][nN]				{token(IN);}
+[rR][eE][aA][dD]	{token(READ);}
 
 {integer} {
         tokenString(INTEGER, yytext);
