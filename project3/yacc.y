@@ -51,7 +51,7 @@ labelManager labelmanager;
  /* non-terminal with type (to store info) */
 %type<Element> data_type optional_type 
 %type<Element> constant_expression optional_assign
-%type<Element> expression
+%type<Element> expression expr
 
  /* operator with precedence */
 %left OR
@@ -143,7 +143,6 @@ var_declaration:
 			else if($4.dtype == Bool_type) v.bval = $4.bval;
 		}
 		
-		
 		Entry e;
 		e = createEntry($2.sval, type, Var_type, v);
 		if(sts.tables.size() == 1) e.isGlobal = true;
@@ -167,11 +166,9 @@ var_declaration:
 		}
 		else // local
 		{
-			
 			if($4.dtype != Non_type)
 			{
 				if($4.dtype == Int_type) file << "\t\tistore " << sts.lookup_entry_global($2.sval) << "\n";
-				
 			} 
 		}
 	}
@@ -368,21 +365,24 @@ simple: IDENTIFIER ASSIGN expression {
 						yyerror("func return type error\n");
 				}
 			}
+		| 
 ;
+
 expression:
-	'-' expression %prec UMINUS{
-			Trace("Reducing to expression\n");
+		expr {Trace("expression\n");}
+; 
+expr:
+	'-' expr %prec UMINUS{
+			Trace("Reducing to expression(-expr)\n");
 			
 			if($2.dtype != Int_type && $2.dtype != Float_type)
 				yyerror("type error\n");
 			$$.ival = -1 * $2.ival;
 			
 			file << "\t\tineg\n";
-						cout << "hey there!\n"<<endl;
-
 		}
-	| expression '*' expression {
-			Trace("Reducing to expression\n");
+	| expr '*' expr {
+			Trace("Reducing to expression(e * e)\n");
 			
 			if($1.dtype != $3.dtype)
 				yyerror("types are not the same\n");
@@ -392,8 +392,8 @@ expression:
 			
 			file << "\t\timul\n";
 		}
-	| expression '/' expression {
-			Trace("Reducing to expression\n");
+	| expr '/' expr {
+			Trace("Reducing to expression(e / e)\n");
 			
 			if($1.dtype != $3.dtype)
 				yyerror("types are not the same\n");
@@ -403,8 +403,8 @@ expression:
 			
 			file << "\t\tidiv\n";
 		}
-	| expression '%' expression {
-			Trace("Reducing to expression\n");
+	| expr '%' expr {
+			Trace("Reducing to expression(e % e)\n");
 			
 			if($1.dtype != $3.dtype)
 				yyerror("types are not the same\n");
@@ -414,8 +414,8 @@ expression:
 			
 			file << "\t\tirem\n";
 		}
-	| expression '+' expression {
-			Trace("Reducing to expression\n");
+	| expr '+' expr {
+			Trace("Reducing to expression(e + e)\n");
 			
 			if($1.dtype != $3.dtype)
 				yyerror("types are not the same\n");
@@ -423,8 +423,8 @@ expression:
 			
 			file << "\t\tiadd\n";
 		}
-	| expression '-' expression {
-			Trace("Reducing to expression\n");
+	| expr '-' expr {
+			Trace("Reducing to expression(e - e)\n");
 			
 			if($1.dtype != $3.dtype)
 				yyerror("types are not the same\n");
@@ -432,8 +432,8 @@ expression:
 			
 			file << "\t\tisub\n";
 		}
-	| expression '<' expression {
-			Trace("Reducing to expression\n");
+	| expr '<' expr {
+			Trace("Reducing to expression(e < e)\n");
 			
 			if($1.dtype != $3.dtype)
 				yyerror("types are not the same\n");
@@ -446,10 +446,9 @@ expression:
 			file << "\t\tiflt " << l1 << "\n";
 			file << "\t\ticonst_0\n" << "\t\tgoto " << l2 << "\n";
 			file << "\t" << l1 << ":\n\t\ticonst_1\n\t" << l2 << ":\n "; 
-			
 		}
-	| expression '>' expression {
-			Trace("Reducing to expression\n");
+	| expr '>' expr {
+			Trace("Reducing to expression(e > e)\n");
 			
 			if($1.dtype != $3.dtype)
 				yyerror("types are not the same\n");
@@ -463,8 +462,8 @@ expression:
 			file << "\t\ticonst_0\n" << "\t\tgoto " << l2 << "\n";
 			file << "\t" << l1 << ":\n\t\ticonst_1\n\t" << l2 << ":\n "; 
 		}
-	| expression LE expression {
-			Trace("Reducing to expression\n");
+	| expr LE expr {
+			Trace("Reducing to expression(e <= e)\n");
 			
 			if($1.dtype != $3.dtype)
 				yyerror("types are not the same\n");
@@ -478,8 +477,8 @@ expression:
 			file << "\t\ticonst_0\n" << "\t\tgoto " << l2 << "\n";
 			file << "\t" << l1 << ":\n\t\ticonst_1\n\t" << l2 << ":\n "; 
 		}
-	| expression GE expression {
-			Trace("Reducing to expression\n");
+	| expr GE expr {
+			Trace("Reducing to expression(e >= e)\n");
 			
 			if($1.dtype != $3.dtype)
 				yyerror("types are not the same\n");
@@ -493,8 +492,8 @@ expression:
 			file << "\t\ticonst_0\n" << "\t\tgoto " << l2 << "\n";
 			file << "\t" << l1 << ":\n\t\ticonst_1\n\t" << l2 << ":\n "; 
 		}
-	| expression EQ expression {
-			Trace("Reducing to expression\n");
+	| expr EQ expr {
+			Trace("Reducing to expression(e == e)\n");
 			
 			if($1.dtype != $3.dtype)
 				yyerror("types are not the same\n");
@@ -506,8 +505,8 @@ expression:
 			file << "\t\ticonst_0\n" << "\t\tgoto " << l2 << "\n";
 			file << "\t" << l1 << ":\n\t\ticonst_1\n\t" << l2 << ":\n "; 
 		}
-	| expression NE expression {
-			Trace("Reducing to expression\n");
+	| expr NE expr {
+			Trace("Reducing to expression(e != e)\n");
 			
 			if($1.dtype != $3.dtype)
 				yyerror("types are not the same\n");
@@ -519,31 +518,31 @@ expression:
 			file << "\t\ticonst_0\n" << "\t\tgoto " << l2 << "\n";
 			file << "\t" << l1 << ":\n\t\ticonst_1\n\t" << l2 << ":\n "; 
 		}
-	| expression OR expression {
-			Trace("Reducing to expression\n");
+	| expr OR expr {
+			Trace("Reducing to expression(e | e)\n");
 			
 			if($1.dtype != Bool_type || $3.dtype != Bool_type)
 				yyerror("type error\n");
 				
 			file << "\t\tior\n";
 		}
-	| expression AND expression {
-			Trace("Reducing to expression\n");
+	| expr AND expr {
+			Trace("Reducing to expression(e & e)\n");
 			
 			if($1.dtype != Bool_type || $3.dtype != Bool_type)
 				yyerror("type error\n");
 				
 			file << "\t\tiand\n";
 		}
-	| NOT expression {
-			Trace("Reducing to expression\n");
+	| NOT expr {
+			Trace("Reducing to expression(!)\n");
 			if($2.dtype != Bool_type)
 				yyerror("type error\n");
 			$$.dtype = Bool_type;
 			
 			file << "\t\tixor\n";
 		}
-	| func_invocation { Trace("Reducing to expression\n"); }
+	| func_invocation { Trace("Reducing to expression(fuc)\n"); }
 	| constant_expression {
 			Trace("Reducing to expression(constant)\n");
 			$$.dtype = $1.dtype;
@@ -561,7 +560,7 @@ expression:
 			}
 		}
 	| IDENTIFIER '[' expression ']'  {
-		Trace("Reducing to expression\n");
+		Trace("Reducing to expression(arr[])\n");
 		
 		int result = sts.lookup_entry_global($1.sval);
 		if(result == -1)
@@ -570,7 +569,7 @@ expression:
 			yyerror("array index must be integer!\n");
 	}
 	| IDENTIFIER {
-		Trace("Reducing to expression\n");
+		Trace("Reducing to expression(id)\n");
 		
 		bool ForCondition = false;
 		if(sts.nowIsFor && $1.sval == sts.forID) ForCondition = true;
@@ -599,7 +598,7 @@ expression:
 				else if(ptr->dataType == String_type) file << "\t\tldc " << "\"" << ptr->val.sval << "\"\n";
 			}
 	}
-; 
+;
 loop_statement:
 	while_statement {Trace("Reducing to loop_statement\n");}
 	| for_statement {Trace("Reducing to loop_statement\n");}
@@ -671,7 +670,11 @@ optional_else:
 		file << "\t" << labelmanager.getNowL1() << ":\n";
 	}
 	block_or_simple {Trace("Reducing to optional_else\n");}
-	| {Trace("Reducing to optional_else\n");}
+	| {
+		Trace("Reducing to optional_else\n");
+		file << "\t\tgoto " << labelmanager.getNowL2() << "\n";
+		file << "\t" << labelmanager.getNowL1() << ":\n";
+	}
 ;
 block_or_simple:
 	{
@@ -685,8 +688,7 @@ block_or_simple:
 			int result = sts.lookup_entry(e);
 			if(result == -1)
 				sts.insert_entry(e);
-		}
-			
+		}	
 	} 
 	block {
 			Trace("Reducing to block_or_simple\n");
@@ -804,7 +806,6 @@ constant_expression:
 		$$.dtype = Bool_type;
 		Trace("Reducing to constant_expression\n");
 		}
-
 %%
 int yyerror(const char *s)
 {
