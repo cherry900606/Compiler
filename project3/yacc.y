@@ -66,7 +66,7 @@ labelManager labelmanager;
 %nonassoc UMINUS
 %%
 program:
-	CLASS IDENTIFIER '{' {
+       	CLASS IDENTIFIER '{' {
 		/* initilize system table */
 		sts.push_table($2.sval);
 		
@@ -84,18 +84,18 @@ program:
 	}
 ;
 declarations:
-	declaration {Trace("Reducing to declarations\n");}
+	    	declaration {Trace("Reducing to declarations\n");}
 	| declaration declarations {Trace("Reducing to declarations\n");}
 ;
 declaration:
-	constant_declaration {Trace("Reducing to declaration\n");}
+	   	constant_declaration {Trace("Reducing to declaration\n");}
 	| var_declaration  {Trace("Reducing to declaration\n");}
 	| array_declaration {Trace("Reducing to declaration\n");}
 	| func_declaration  {Trace("Reducing to declaration\n");}
 ;
 
 constant_declaration: 
-	VAL IDENTIFIER optional_type ASSIGN expression { 
+		    	VAL IDENTIFIER optional_type ASSIGN expression { 
 		Trace("Reducing to constant_declaration\n");
 		if($3.dtype != Non_type && $3.dtype != $5.dtype)
 			yyerror("data type and expr type are not matched!");
@@ -119,7 +119,7 @@ constant_declaration:
 	}
 ;
 var_declaration:
-	VAR IDENTIFIER optional_type optional_assign {
+	       	VAR IDENTIFIER optional_type optional_assign {
 		Trace("Reducing to var_declaration\n");
 		
 		/* if the statment specify the data type, then it must be correct */ 
@@ -142,6 +142,7 @@ var_declaration:
 			else if($4.dtype == String_type) v.sval = $4.sval;
 			else if($4.dtype == Bool_type) v.bval = $4.bval;
 		}
+		
 		
 		Entry e;
 		e = createEntry($2.sval, type, Var_type, v);
@@ -166,15 +167,17 @@ var_declaration:
 		}
 		else // local
 		{
+			
 			if($4.dtype != Non_type)
 			{
 				if($4.dtype == Int_type) file << "\t\tistore " << sts.lookup_entry_global($2.sval) << "\n";
+				
 			} 
 		}
 	}
 ;
 array_declaration:
-	VAR IDENTIFIER ':' data_type '[' INTEGER ']'  {
+		 	VAR IDENTIFIER ':' data_type '[' INTEGER ']'  {
 		Trace("Reducing to array_declaration\n");
 		
 		Entry e;
@@ -188,7 +191,7 @@ array_declaration:
 	}
 ;
 func_declaration:
-	FUN IDENTIFIER  {
+			FUN IDENTIFIER  {
 		/* add func to symbol table first */
 		Entry e; Val v;
 		e = createEntry($2.sval, Non_type, Func_type, v);
@@ -233,15 +236,15 @@ func_declaration:
 ;
 
 optional_arguments:
-	arguments   {Trace("Reducing to optional_arguments\n");}
+		  	arguments   {Trace("Reducing to optional_arguments\n");}
 	|   {Trace("Reducing to optional_arguments\n");}
 ;
 arguments:
-	argument   {Trace("Reducing to arguments\n");}
+	 	argument   {Trace("Reducing to arguments\n");}
 	| argument ',' arguments    {Trace("Reducing to arguments\n");}
 ;
 argument:
-	IDENTIFIER ':' data_type  { 
+		IDENTIFIER ':' data_type  { 
 		Trace("Reducing to argument\n");
 		
 		/* add func arguments into func's own symbol table */
@@ -257,14 +260,14 @@ argument:
 	}
 ;
 block: 
-	'{' statements '}'  {Trace("Reducing to block\n");}
+     	'{' statements '}'  {Trace("Reducing to block\n");}
 ;
 statements:
-	statement {Trace("Reducing to statements\n");}
+	  	statement {Trace("Reducing to statements\n");}
 	| statement statements  {Trace("Reducing to statements\n");}
 ;
 statement:
-	simple  {Trace("Reducing to statement\n");}
+	 	simple  {Trace("Reducing to statement\n");}
 	| expression {Trace("Reducing to statement\n");}
 	| declaration {Trace("Reducing to statement\n");}
 	| conditional_statement  {Trace("Reducing to statement\n");}
@@ -272,7 +275,7 @@ statement:
 	| {Trace("Reducing to (empty) statement\n");}
 ;
 simple: IDENTIFIER ASSIGN expression {
-			Trace("Reducing to simple\n");
+      			Trace("Reducing to simple\n");
 			
 			int result = sts.lookup_entry_global($1.sval);
 			if(result == -1)
@@ -369,10 +372,10 @@ simple: IDENTIFIER ASSIGN expression {
 ;
 
 expression:
-		expr {Trace("expression\n");}
+	  		expr {Trace("expression\n");}
 ; 
 expr:
-	'-' expr %prec UMINUS{
+    	'-' expr %prec UMINUS{
 			Trace("Reducing to expression(-expr)\n");
 			
 			if($2.dtype != Int_type && $2.dtype != Float_type)
@@ -380,6 +383,8 @@ expr:
 			$$.ival = -1 * $2.ival;
 			
 			file << "\t\tineg\n";
+						cout << "hey there!\n"<<endl;
+
 		}
 	| expr '*' expr {
 			Trace("Reducing to expression(e * e)\n");
@@ -446,6 +451,7 @@ expr:
 			file << "\t\tiflt " << l1 << "\n";
 			file << "\t\ticonst_0\n" << "\t\tgoto " << l2 << "\n";
 			file << "\t" << l1 << ":\n\t\ticonst_1\n\t" << l2 << ":\n "; 
+			
 		}
 	| expr '>' expr {
 			Trace("Reducing to expression(e > e)\n");
@@ -593,18 +599,24 @@ expr:
 			}
 			else if(ptr->entryType == Val_type)
 			{
-				if(ptr->dataType == Int_type) file << "\t\tsipush " << ptr->val.ival << "\n";
+				if(ptr->dataType == Int_type)
+				{
+					if(ptr->isGlobal)
+						file << "\t\tsipush " << $$.ival << "\n";
+					else
+						file << "\t\tiload " << sts.lookup_entry_global(ptr->ID) << "\n"; // local
+				}
 				else if(ptr->dataType == Bool_type) file << "\t\ticonst_" << ptr->val.bval << "\n";
 				else if(ptr->dataType == String_type) file << "\t\tldc " << "\"" << ptr->val.sval << "\"\n";
 			}
 	}
 ;
 loop_statement:
-	while_statement {Trace("Reducing to loop_statement\n");}
+	      	while_statement {Trace("Reducing to loop_statement\n");}
 	| for_statement {Trace("Reducing to loop_statement\n");}
 ;
 while_statement:
-	WHILE {
+	       	WHILE {
 		string l1 = labelmanager.getLabel(), l2 = labelmanager.getLabel();
 		labelmanager.setnowL3(l1); labelmanager.setnowL4(l2);
 		
@@ -623,7 +635,7 @@ while_statement:
 	}
 ;
 for_statement:
-	FOR '(' IDENTIFIER IN INTEGER '.' '.' INTEGER ')' {
+	     	FOR '(' IDENTIFIER IN INTEGER '.' '.' INTEGER ')' {
 		/* now is in the for statement */
 		sts.nowIsFor = true;
 		/* record the id, and push it into symbol table later */
@@ -653,7 +665,7 @@ for_statement:
 	}
 ;
 conditional_statement:
-	IF '(' expression ')'  {
+		     	IF '(' expression ')'  {
 		if($3.dtype == String_type)
 			yyerror("IF statement condition type error\n");
 		string l1 = labelmanager.getLabel(), l2 = labelmanager.getLabel();
@@ -665,19 +677,15 @@ conditional_statement:
 	}
 ;
 optional_else:
-	ELSE {
+	     	ELSE {
 		file << "\t\tgoto " << labelmanager.getNowL2() << "\n";
 		file << "\t" << labelmanager.getNowL1() << ":\n";
 	}
 	block_or_simple {Trace("Reducing to optional_else\n");}
-	| {
-		Trace("Reducing to optional_else\n");
-		file << "\t\tgoto " << labelmanager.getNowL2() << "\n";
-		file << "\t" << labelmanager.getNowL1() << ":\n";
-	}
+	| {Trace("Reducing to optional_else\n");}
 ;
 block_or_simple:
-	{
+	       	{
 		/* create the symbol table for any block */
 		sts.push_table("block");
 		/* if it is FOR block, then insert the ID record before into symbol table */
@@ -688,7 +696,8 @@ block_or_simple:
 			int result = sts.lookup_entry(e);
 			if(result == -1)
 				sts.insert_entry(e);
-		}	
+		}
+			
 	} 
 	block {
 			Trace("Reducing to block_or_simple\n");
@@ -698,7 +707,7 @@ block_or_simple:
 	| simple { Trace("Reducing to block_or_simple\n");}
 ;
 func_invocation:
-		IDENTIFIER   {
+	       		IDENTIFIER   {
 			Trace("Reducing to func_invocation\n");
 			
 			int result = sts.lookup_entry_global($1.sval);
@@ -714,7 +723,7 @@ func_invocation:
 				yyerror("func invocation argument number error\n");
 			sts.nowFuncArgCount = 0;
 			
-			file << "\t\tinvokestatic " << dtypeInt_to_string(sts.nowFuncType) << className << "." << sts.nowFuncName << "(";
+			file << "\t\tinvokestatic " << dtypeInt_to_string(sts.getEntry(sts.nowFuncName)->dataType) << " " << className << "." << sts.nowFuncName << "(";
 			for(int i=0; i<funcArgs[sts.nowFuncName].size(); i++)
 			{
 				if(i==0) file << dtypeInt_to_string(funcArgs[sts.nowFuncName][i]);
@@ -724,15 +733,15 @@ func_invocation:
 		}
 ;
 optional_parameters:
-	parameters { Trace("Reducing to optional_parameters\n");}
+		   	parameters { Trace("Reducing to optional_parameters\n");}
 	|  {Trace("Reducing to optional_parameters\n");}
 ;
 parameters:
-	parameter { Trace("Reducing to parameters\n");	}
+	  	parameter { Trace("Reducing to parameters\n");	}
 	| parameter ',' parameters {Trace("Reducing to parameters\n");}
 ;
 parameter:
-	expression {
+	 	expression {
 		Trace("Reducing to parameter\n");
 		sts.nowFuncArgCount += 1;
 		if(sts.nowFuncArgCount > funcArgs[sts.nowFuncName].size())
@@ -744,7 +753,7 @@ parameter:
 ;
 	
 optional_type:
-	':' data_type { 
+	     	':' data_type { 
 		$$.dtype = $2.dtype;
 		Trace("Reducing to optional_type\n");}
 	|  {
@@ -753,7 +762,7 @@ optional_type:
 		}
 ;
 optional_assign:
-	ASSIGN expression  { 
+	       	ASSIGN expression  { 
 			Trace("Reducing to optional_assign\n");
 			$$.dtype = $2.dtype; 
 			
@@ -765,7 +774,7 @@ optional_assign:
 	|   { $$.dtype = Non_type; Trace("Reducing to optional_assign\n");}
 ;
 data_type:
-	INT {
+	 	INT {
 		$$.dtype = Int_type;
 		Trace("Reducing to data_type\n");
 		}
@@ -783,7 +792,7 @@ data_type:
 		}
 ;
 constant_expression:
-	INTEGER {
+		   	INTEGER {
 		$$.ival = $1.ival;
 		$$.dtype = Int_type;
 		Trace("Reducing to constant_expression\n");}
@@ -806,6 +815,7 @@ constant_expression:
 		$$.dtype = Bool_type;
 		Trace("Reducing to constant_expression\n");
 		}
+
 %%
 int yyerror(const char *s)
 {
@@ -813,9 +823,8 @@ int yyerror(const char *s)
 		exit(-1);
         return 0;
 }
-int main(int argc, char *argv[])
+int main(int argc, char **argv)
 {
-		
 		file.open("p3.jasm");
 		
         yyparse();
