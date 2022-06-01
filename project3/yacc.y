@@ -332,7 +332,7 @@ simple: IDENTIFIER ASSIGN expression {
 		} expression {
 			Trace("Reducing to simple\n");
 			
-			if($3.dtype == Int_type) file << "\t\tinvokevirtual void java.io.PrintStream.print(int)\n";
+			if($3.dtype == Int_type) file << "\t\tinvokevirtual void java.io.PrintStream.println(int)\n";
 			else if($3.dtype == Bool_type) file << "\t\tinvokevirtual void java.io.PrintStream.println(boolean)\n";
 			else if($3.dtype == String_type) file << "\t\tinvokevirtual void java.io.PrintStream.println(java.lang.String)\n";
 		}
@@ -341,7 +341,7 @@ simple: IDENTIFIER ASSIGN expression {
 		} '(' expression ')' {
 			Trace("Reducing to simple\n");
 			
-			if($4.dtype == Int_type) file << "\t\tinvokevirtual void java.io.PrintStream.print(int)\n";
+			if($4.dtype == Int_type) file << "\t\tinvokevirtual void java.io.PrintStream.println(int)\n";
 			else if($4.dtype == Bool_type) file << "\t\tinvokevirtual void java.io.PrintStream.println(boolean)\n";
 			else if($4.dtype == String_type) file << "\t\tinvokevirtual void java.io.PrintStream.println(java.lang.String)\n";
 		}
@@ -383,7 +383,6 @@ expr:
 			$$.ival = -1 * $2.ival;
 			
 			file << "\t\tineg\n";
-						cout << "hey there!\n"<<endl;
 
 		}
 	| expr '*' expr {
@@ -659,7 +658,7 @@ for_statement:
 		sts.nowIsFor = false;
 		
 		file << "\t\tiload " << to_string(0) << "\n";
-		file << "\t\tsipush 1\n"; file << "\t\tiadd\n"; file << "\t\tistore " << 1 << "\n";
+		file << "\t\tsipush 1\n"; file << "\t\tiadd\n"; file << "\t\tistore " << 0 << "\n";
 		file << "\t\tgoto " << labelmanager.getNowL1() << "\n";
 		file << "\t" << labelmanager.getNowL2() << ":\n";
 	}
@@ -692,10 +691,11 @@ block_or_simple:
 		if(sts.nowIsFor == true)
 		{
 			Entry e; Val v;
-			e = createEntry(sts.forID, Non_type, Var_type, v);
+			e = createEntry(sts.forID, Int_type, Var_type, v);
 			int result = sts.lookup_entry(e);
 			if(result == -1)
 				sts.insert_entry(e);
+			printf("for block here!\n");
 		}
 			
 	} 
@@ -704,7 +704,23 @@ block_or_simple:
 			sts.dump_table(); 
 			sts.pop_table();
 		}
-	| simple { Trace("Reducing to block_or_simple\n");}
+	| {
+		if(sts.nowIsFor == true)
+		{
+			sts.push_table("block");
+			Entry e; Val v;
+			e = createEntry(sts.forID, Int_type, Var_type, v);
+			int result = sts.lookup_entry(e);
+			if(result == -1)
+				sts.insert_entry(e);
+			printf("for block here!\n");
+		} } simple { Trace("Reducing to block_or_simple\n");
+			if(sts.nowIsFor == true)
+			{
+				sts.dump_table(); 
+				sts.pop_table();
+			}
+		}
 ;
 func_invocation:
 	       		IDENTIFIER   {
