@@ -24,6 +24,7 @@ void getStr(string s) { cout << "test: " << s << endl;}
 
 labelManager labelmanager;
 
+bool isElse = false;
 %}
 
 %union
@@ -170,7 +171,12 @@ var_declaration:
 			
 			if($4.dtype != Non_type)
 			{
-				if($4.dtype == Int_type) file << "\t\tistore " << sts.lookup_entry_global($2.sval) << "\n";
+				if($4.dtype == Int_type) {
+					if(sts.nowIsFunc && sts.nowFuncName != "main")
+						file << "\t\tistore " << sts.lookup_entry_global($2.sval) << "\n";
+					else
+						file << "\t\tistore " << sts.getIndex($2.sval) << "\n";
+				}
 				
 			} 
 		}
@@ -290,8 +296,10 @@ simple: IDENTIFIER ASSIGN expression {
 			if(ptr->entryType == Val_type)
 				yyerror("val constant can't be reassigned\n");
 				
-			if(sts.lookup_entry(*ptr) != -1) // local
+			if(sts.lookup_entry(*ptr) != -1 && sts.nowIsFunc && sts.nowFuncName!="main") // local & in func declaration
 				file << "\t\tistore " << sts.lookup_entry_global(ptr->ID) << "\n";
+			else if(sts.lookup_entry(*ptr) != -1) // local & not in func
+				file << "\t\tistore " << sts.getIndex(ptr->ID) << "\n";
 			else
 				file << "\t\tputstatic " << dtypeInt_to_string(ptr->dataType) << " " << className << "." << ptr->ID << "\n";
 		}
@@ -368,7 +376,8 @@ simple: IDENTIFIER ASSIGN expression {
 						yyerror("func return type error\n");
 				}
 			}
-		| 
+		| func_invocation {}
+		|
 ;
 
 expression:
@@ -593,8 +602,10 @@ expr:
 			{
 				if(ptr->isGlobal)
 					file << "\t\tgetstatic " << dtypeInt_to_string(ptr->dataType) << " " << className << "." << ptr->ID << "\n";
-				else
+				else if(sts.nowIsFunc && sts.nowFuncName != "main")
 					file << "\t\tiload " << sts.lookup_entry_global(ptr->ID) << "\n";
+				else
+					file << "\t\tiload " << sts.getIndex(ptr->ID) << "\n";
 			}
 			else if(ptr->entryType == Val_type)
 			{
@@ -602,8 +613,10 @@ expr:
 				{
 					if(ptr->isGlobal)
 						file << "\t\tsipush " << $$.ival << "\n";
-					else
+					else if(sts.nowIsFunc && sts.nowFuncName != "main")
 						file << "\t\tiload " << sts.lookup_entry_global(ptr->ID) << "\n"; // local
+					else
+						file << "\t\tiload " << sts.getIndex(ptr->ID) << "\n";
 				}
 				else if(ptr->dataType == Bool_type) file << "\t\ticonst_" << ptr->val.bval << "\n";
 				else if(ptr->dataType == String_type) file << "\t\tldc " << "\"" << ptr->val.sval << "\"\n";
@@ -640,10 +653,17 @@ for_statement:
 		/* record the id, and push it into symbol table later */
 		sts.forID = $3.sval;
 		
+		sts.push_table("for block");
+		Entry e; Val v;
+		e = createEntry(sts.forID, Int_type, Var_type, v);
+		int result = sts.lookup_entry(e);
+		if(result == -1)
+			sts.insert_entry(e);
+		
 		file << "\t\tsipush " << $5.ival << "\n";
-		file << "\t\tistore " << to_string(0) << "\n"; // id must be the first variable in local symbol table
+		file << "\t\tistore " << sts.getIndex(sts.forID) << "\n";
 		string l1 = labelmanager.getLabel(), l2 = labelmanager.getLabel(), l3 = labelmanager.getLabel(), l4 = labelmanager.getLabel();
-		file << "\t" << l1 << ":\n"; file << "\t\tiload " << to_string(0) << "\n";
+		file << "\t" << l1 << ":\n"; file << "\t\tiload " << sts.getIndex(sts.forID) << "\n";
 		file << "\t\tsipush " << $8.ival << "\n"; file << "\t\tisub\n";
 		file << "\t\tifle " << l3 << "\n"; file << "\t\ticonst_0\n";
 		file << "\t\tgoto " << l4 << "\n";
@@ -657,10 +677,13 @@ for_statement:
 		/* leave the for statment */
 		sts.nowIsFor = false;
 		
-		file << "\t\tiload " << to_string(0) << "\n";
-		file << "\t\tsipush 1\n"; file << "\t\tiadd\n"; file << "\t\tistore " << 0 << "\n";
+		file << "\t\tiload " << sts.getIndex(sts.forID) << "\n";
+		file << "\t\tsipush 1\n"; file << "\t\tiadd\n"; file << "\t\tistore " << sts.getIndex(sts.forID) << "\n";
 		file << "\t\tgoto " << labelmanager.getNowL1() << "\n";
 		file << "\t" << labelmanager.getNowL2() << ":\n";
+		
+		sts.dump_table(); 
+		sts.pop_table();
 	}
 ;
 conditional_statement:
@@ -672,13 +695,16 @@ conditional_statement:
 		file << "\t\tifeq " << l1 << "\n";
 	} block_or_simple optional_else {
 		Trace("Reducing to conditional_statement\n");
-		file << "\t" << labelmanager.getNowL2() << ":\n";
+		if(isElse) file << "\t" << labelmanager.getNowL2() << ":\n";
+		else file << "\t" << labelmanager.getNowL1() << ":\n";
 	}
 ;
 optional_else:
 	     	ELSE {
 		file << "\t\tgoto " << labelmanager.getNowL2() << "\n";
 		file << "\t" << labelmanager.getNowL1() << ":\n";
+		
+		isElse = true;
 	}
 	block_or_simple {Trace("Reducing to optional_else\n");}
 	| {Trace("Reducing to optional_else\n");}
@@ -686,40 +712,20 @@ optional_else:
 block_or_simple:
 	       	{
 		/* create the symbol table for any block */
-		sts.push_table("block");
-		/* if it is FOR block, then insert the ID record before into symbol table */
-		if(sts.nowIsFor == true)
-		{
-			Entry e; Val v;
-			e = createEntry(sts.forID, Int_type, Var_type, v);
-			int result = sts.lookup_entry(e);
-			if(result == -1)
-				sts.insert_entry(e);
-			printf("for block here!\n");
-		}
+		if(!sts.nowIsFor) sts.push_table("block");
+		
 			
 	} 
 	block {
 			Trace("Reducing to block_or_simple\n");
+			if(!sts.nowIsFor){
 			sts.dump_table(); 
 			sts.pop_table();
+			}
 		}
 	| {
-		if(sts.nowIsFor == true)
-		{
-			sts.push_table("block");
-			Entry e; Val v;
-			e = createEntry(sts.forID, Int_type, Var_type, v);
-			int result = sts.lookup_entry(e);
-			if(result == -1)
-				sts.insert_entry(e);
-			printf("for block here!\n");
-		} } simple { Trace("Reducing to block_or_simple\n");
-			if(sts.nowIsFor == true)
-			{
-				sts.dump_table(); 
-				sts.pop_table();
-			}
+		} simple { Trace("Reducing to block_or_simple\n");
+			
 		}
 ;
 func_invocation:
