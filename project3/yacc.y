@@ -25,6 +25,7 @@ void getStr(string s) { cout << "test: " << s << endl;}
 labelManager labelmanager;
 
 bool isElse = false;
+bool isInMain = false;
 %}
 
 %union
@@ -172,7 +173,7 @@ var_declaration:
 			if($4.dtype != Non_type)
 			{
 				if($4.dtype == Int_type) {
-					if(sts.nowIsFunc && sts.nowFuncName != "main")
+					if(sts.nowIsFunc && !isInMain)
 						file << "\t\tistore " << sts.lookup_entry_global($2.sval) << "\n";
 					else
 						file << "\t\tistore " << sts.getIndex($2.sval) << "\n";
@@ -212,6 +213,7 @@ func_declaration:
 		sts.push_table($2.sval);
 		/* now is in the function declartion */
 		sts.nowIsFunc = true;
+		if(sts.nowFuncName == "main") {isInMain = true;}
 	}
 	'(' optional_arguments ')' optional_type {
 		/* record the function return type */
@@ -238,6 +240,8 @@ func_declaration:
 				file << "\t\tireturn\n\t}\n";
 			else
 				file << "\t\treturn\n\t}\n";
+				
+			isInMain = false;
 		}
 ;
 
@@ -296,9 +300,9 @@ simple: IDENTIFIER ASSIGN expression {
 			if(ptr->entryType == Val_type)
 				yyerror("val constant can't be reassigned\n");
 				
-			if(sts.lookup_entry(*ptr) != -1 && sts.nowIsFunc && sts.nowFuncName!="main") // local & in func declaration
+			if(!ptr->isGlobal && sts.nowIsFunc && !isInMain) // local & in func declaration
 				file << "\t\tistore " << sts.lookup_entry_global(ptr->ID) << "\n";
-			else if(sts.lookup_entry(*ptr) != -1) // local & not in func
+			else if(!ptr->isGlobal) // local & not in func
 				file << "\t\tistore " << sts.getIndex(ptr->ID) << "\n";
 			else
 				file << "\t\tputstatic " << dtypeInt_to_string(ptr->dataType) << " " << className << "." << ptr->ID << "\n";
@@ -602,7 +606,7 @@ expr:
 			{
 				if(ptr->isGlobal)
 					file << "\t\tgetstatic " << dtypeInt_to_string(ptr->dataType) << " " << className << "." << ptr->ID << "\n";
-				else if(sts.nowIsFunc && sts.nowFuncName != "main")
+				else if(sts.nowIsFunc && !isInMain )
 					file << "\t\tiload " << sts.lookup_entry_global(ptr->ID) << "\n";
 				else
 					file << "\t\tiload " << sts.getIndex(ptr->ID) << "\n";
@@ -613,7 +617,7 @@ expr:
 				{
 					if(ptr->isGlobal)
 						file << "\t\tsipush " << $$.ival << "\n";
-					else if(sts.nowIsFunc && sts.nowFuncName != "main")
+					else if(sts.nowIsFunc && !isInMain)
 						file << "\t\tiload " << sts.lookup_entry_global(ptr->ID) << "\n"; // local
 					else
 						file << "\t\tiload " << sts.getIndex(ptr->ID) << "\n";
