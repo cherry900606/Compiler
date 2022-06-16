@@ -22,3 +22,13 @@ You first need to write your symbol table, which should be able to perform the f
 
 You then must create an LALR(1) grammar using yacc. You need to write the grammar following the syntactic and semantic definitions in the following sections. Once the LALR(1) grammar is defined, you can
 then execute yacc to produce a C program called “y.tab.c”, which contains the parsing function yyparse(). You must supply a main function to invoke yyparse(). The parsing function yyparse() calls yylex(). You will have to revise your scanner function yylex().
+
+## project3: Code Generation
+
+Your assignment is to generate code (in Java assembly language) for the Kotlin− language. The generated code will then be translated to Java bytecode by a Java assembler.
+
+```
+./compiler < HelloWorld.kt
+./javaa p3.jasm
+java HelloWorld
+```
