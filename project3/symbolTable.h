@@ -170,7 +170,6 @@ Entry* symbolTables::getEntry(string s)
 int symbolTables::getIndex(string s)
 {
 	int idx = this->tables.size() - 1;
-	//if(s == this->forID) {cout<<"hhhhhh" << this->tables[idx].scopeName << endl;return this->totalIndex;}
 	for (int index = idx; index >= 0; index--)
 	{
 		for (int i = 0; i < this->tables[index].entries.size(); i++)
@@ -218,10 +217,3 @@ public:
 	string getnowL3() {return nowL3;}
 	string getnowL4() {return nowL4;}
 };
-
-/* todo list:
-	1. if-else 沒有 else 的情況
-	2. iload 的 index 好像不對
-	3. javaa 怎麼跑
-	
-*/

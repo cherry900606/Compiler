@@ -396,7 +396,6 @@ expr:
 			$$.ival = -1 * $2.ival;
 			
 			file << "\t\tineg\n";
-
 		}
 	| expr '*' expr {
 			Trace("Reducing to expression(e * e)\n");
@@ -463,7 +462,6 @@ expr:
 			file << "\t\tiflt " << l1 << "\n";
 			file << "\t\ticonst_0\n" << "\t\tgoto " << l2 << "\n";
 			file << "\t" << l1 << ":\n\t\ticonst_1\n\t" << l2 << ":\n "; 
-			
 		}
 	| expr '>' expr {
 			Trace("Reducing to expression(e > e)\n");
@@ -606,7 +604,9 @@ expr:
 			{
 				if(ptr->isGlobal)
 					file << "\t\tgetstatic " << dtypeInt_to_string(ptr->dataType) << " " << className << "." << ptr->ID << "\n";
-				else if(sts.nowIsFunc && !isInMain )
+				else if(sts.nowIsFunc && !isInMain && sts.nowIsFor && sts.forID == $1.sval)
+					file << "\t\tiload " << sts.getIndex(ptr->ID) << "\n";
+				else if(sts.nowIsFunc && !isInMain)
 					file << "\t\tiload " << sts.lookup_entry_global(ptr->ID) << "\n";
 				else
 					file << "\t\tiload " << sts.getIndex(ptr->ID) << "\n";
@@ -632,26 +632,24 @@ loop_statement:
 	| for_statement {Trace("Reducing to loop_statement\n");}
 ;
 while_statement:
-	       	WHILE {
+	WHILE {
 		string l1 = labelmanager.getLabel(), l2 = labelmanager.getLabel();
 		labelmanager.setnowL3(l1); labelmanager.setnowL4(l2);
 		
 		file << "\t" << l1 << ":\n";
-	}
-	'(' expression ')' {
+	} '(' expression ')' {
 		Trace("Reducing to while_statement\n");
 		if($4.dtype == String_type)
 			yyerror("WHILE statement condition type error\n");
 		
 		file << "\t\tifeq " << labelmanager.getnowL4() << "\n";
-	}
-	block_or_simple {
+	} block_or_simple {
 		file << "\t\tgoto " << labelmanager.getnowL3() << "\n";
 		file << "\t" << labelmanager.getnowL4() << ":\n";
 	}
 ;
 for_statement:
-	     	FOR '(' IDENTIFIER IN INTEGER '.' '.' INTEGER ')' {
+	FOR '(' IDENTIFIER IN INTEGER '.' '.' INTEGER ')' {
 		/* now is in the for statement */
 		sts.nowIsFor = true;
 		/* record the id, and push it into symbol table later */
@@ -691,7 +689,7 @@ for_statement:
 	}
 ;
 conditional_statement:
-		     	IF '(' expression ')'  {
+	IF '(' expression ')'  {
 		if($3.dtype == String_type)
 			yyerror("IF statement condition type error\n");
 		string l1 = labelmanager.getLabel(), l2 = labelmanager.getLabel();
@@ -704,36 +702,29 @@ conditional_statement:
 	}
 ;
 optional_else:
-	     	ELSE {
+	ELSE {
 		file << "\t\tgoto " << labelmanager.getNowL2() << "\n";
 		file << "\t" << labelmanager.getNowL1() << ":\n";
 		
 		isElse = true;
-	}
-	block_or_simple {Trace("Reducing to optional_else\n");}
+	} block_or_simple {Trace("Reducing to optional_else\n");}
 	| {Trace("Reducing to optional_else\n");}
 ;
 block_or_simple:
-	       	{
+	{
 		/* create the symbol table for any block */
-		if(!sts.nowIsFor) sts.push_table("block");
-		
-			
-	} 
-	block {
+		if(!sts.nowIsFor) sts.push_table("block");	
+	} block {
 			Trace("Reducing to block_or_simple\n");
 			if(!sts.nowIsFor){
-			sts.dump_table(); 
-			sts.pop_table();
+				sts.dump_table(); 
+				sts.pop_table();
 			}
 		}
-	| {
-		} simple { Trace("Reducing to block_or_simple\n");
-			
-		}
+	| {} simple { Trace("Reducing to block_or_simple\n");}
 ;
 func_invocation:
-	       		IDENTIFIER   {
+	IDENTIFIER   {
 			Trace("Reducing to func_invocation\n");
 			
 			int result = sts.lookup_entry_global($1.sval);
